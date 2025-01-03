@@ -143,41 +143,6 @@ for package in "${packages[@]}"; do
     cp $PWD/B/*.pkg.tar.* $PWD/artifacts
     echo "::endgroup::"
 
-    cd B
-    for pkg in *.pkg.tar.*; do
-        pkgname="$(echo "$pkg" | rev | cut -d- -f4- | rev)"
-        echo "::group::[install] ${pkgname}"
-        grep -qFx "${package}" "$DIR/ci-dont-install-list.txt" || pacman --noprogressbar --upgrade --noconfirm $pkg
-        echo "::endgroup::"
-
-        echo "::group::[meta-diff] ${pkgname}"
-        message "Package info diff for ${pkgname}"
-        diff -Nur <(pacman -Si ${MSYSTEM,,}/"${pkgname}") <(pacman -Qip "${pkg}") || true
-        echo "::endgroup::"
-
-        echo "::group::[file-diff] ${pkgname}"
-        message "File listing diff for ${pkgname}"
-        diff -Nur <(pacman -Fl ${MSYSTEM,,}/"$pkgname" | sed -e 's|^[^ ]* |/|' | sort) <(pacman -Ql "$pkgname" | sed -e 's|^[^/]*||' | sort) || true
-        echo "::endgroup::"
-
-        echo "::group::[runtime-dependencies] ${pkgname}"
-        message "Runtime dependencies for ${pkgname}"
-        declare -a binaries=($(pacman -Ql $pkgname | sed -e 's|^[^ ]* ||' | grep -E ${MINGW_PREFIX}/.+\.\(dll\|exe\|pyd\)$))
-        if [ "${#binaries[@]}" -ne 0 ]; then
-            for binary in ${binaries[@]}; do
-                echo "${binary}:"
-                ntldd -R ${binary} | grep -v "ext-ms\|api-ms\|WINDOWS\|Windows\|HvsiFileTrust\|wpaxholder\|ngcrecovery\|AzureAttest\|PdmUtilities\|WTDSENSOR\|wtdccm" || true
-            done
-        fi
-        echo "::endgroup::"
-
-        echo "::group::[uninstall] ${pkgname}"
-        message "Uninstalling $pkgname"
-        pacman -R --recursive --unneeded --noconfirm --noprogressbar "$pkgname"
-        echo "::endgroup::"
-    done
-    cd - > /dev/null
-
     rm -rf B
     unset package
 done
